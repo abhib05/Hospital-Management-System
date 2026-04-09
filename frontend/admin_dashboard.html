@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>HMS – Admin Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/js/api.js"></script>
+</head>
+<body class="bg-gray-50">
+
+<nav class="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between shadow-sm sticky top-0 z-40">
+  <div class="flex items-center gap-3">
+    <div class="w-8 h-8 bg-red-600 rounded-lg flex items-center justify-center">
+      <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+          d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+      </svg>
+    </div>
+    <span class="font-bold text-gray-800 text-lg">HMS</span>
+    <span class="text-gray-400 text-sm">/ Admin</span>
+  </div>
+  <div class="flex items-center gap-2 flex-wrap">
+    <button onclick="showTab('users')"     id="tab-users"     class="tab-btn text-sm px-3 py-1.5 rounded-lg bg-red-100 text-red-700 font-medium">Users</button>
+    <button onclick="showTab('inventory')" id="tab-inventory" class="tab-btn text-sm px-3 py-1.5 rounded-lg text-gray-500 hover:bg-gray-100">Inventory</button>
+    <button onclick="showTab('audit')"     id="tab-audit"     class="tab-btn text-sm px-3 py-1.5 rounded-lg text-gray-500 hover:bg-gray-100">Audit Logs</button>
+    <button onclick="showTab('register')"  id="tab-register"  class="tab-btn text-sm px-3 py-1.5 rounded-lg text-gray-500 hover:bg-gray-100">Register</button>
+    <button onclick="logout()" class="text-sm text-gray-400 hover:text-red-600 ml-2">Logout</button>
+  </div>
+</nav>
+
+<!-- USERS TAB -->
+<div id="panel-users" class="max-w-6xl mx-auto px-4 py-6">
+  <div class="flex items-center justify-between mb-4">
+    <h2 class="text-lg font-bold text-gray-800">System Users</h2>
+    <div class="flex gap-2">
+      <select id="role-filter" onchange="loadUsers()" class="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-red-400 outline-none">
+        <option value="">All Roles</option>
+        <option>Doctor</option><option>Patient</option>
+        <option>Pharmacist</option><option>LabTech</option><option>Admin</option>
+      </select>
+    </div>
+  </div>
+  <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+    <table class="w-full text-sm">
+      <thead class="bg-gray-50 border-b border-gray-200">
+        <tr>
+          <th class="px-4 py-3 text-left font-semibold text-gray-600">ID</th>
+          <th class="px-4 py-3 text-left font-semibold text-gray-600">Username</th>
+          <th class="px-4 py-3 text-left font-semibold text-gray-600">Role</th>
+          <th class="px-4 py-3 text-left font-semibold text-gray-600">Status</th>
+          <th class="px-4 py-3 text-left font-semibold text-gray-600">Created</th>
+          <th class="px-4 py-3 text-center font-semibold text-gray-600">Actions</th>
+        </tr>
+      </thead>
+      <tbody id="users-table" class="divide-y divide-gray-50">
+        <tr><td colspan="6" class="text-center py-8 text-gray-400">Loading…</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- INVENTORY TAB -->
+<div id="panel-inventory" class="hidden max-w-6xl mx-auto px-4 py-6 space-y-6">
+
+  <!-- Summary cards -->
+  <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+    <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+      <p class="text-xs text-gray-400 mb-1">Total Medicines</p>
+      <p id="inv-total" class="text-2xl font-bold text-gray-800">—</p>
+    </div>
+    <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+      <p class="text-xs text-gray-400 mb-1">Low Stock</p>
+      <p id="inv-low" class="text-2xl font-bold text-red-600">—</p>
+    </div>
+    <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+      <p class="text-xs text-gray-400 mb-1">Total Units in Stock</p>
+      <p id="inv-units" class="text-2xl font-bold text-gray-800">—</p>
+    </div>
+    <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+      <p class="text-xs text-gray-400 mb-1">Inventory Value</p>
+      <p id="inv-value" class="text-2xl font-bold text-green-600">—</p>
+    </div>
+  </div>
+
+  <!-- Add new drug form -->
+  <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+    <h3 class="font-semibold text-gray-800 mb-4">Add New Medicine</h3>
+    <form id="add-drug-form" class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+      <div>
+        <label class="block text-xs font-medium text-gray-600 mb-1">Drug Name</label>
+        <input name="drug_name" required placeholder="e.g. Aspirin 100mg" class="input-field"/>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-600 mb-1">Generic Name</label>
+        <input name="generic_name" placeholder="e.g. Acetylsalicylic acid" class="input-field"/>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-600 mb-1">Unit</label>
+        <select name="unit" class="input-field">
+          <option value="tablet">Tablet</option>
+          <option value="capsule">Capsule</option>
+          <option value="inhaler">Inhaler</option>
+          <option value="syrup">Syrup</option>
+          <option value="injection">Injection</option>
+          <option value="cream">Cream</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-600 mb-1">Unit Price ($)</label>
+        <input name="unit_price" type="number" step="0.01" min="0.01" required placeholder="0.00" class="input-field"/>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-600 mb-1">Initial Stock</label>
+        <input name="stock_qty" type="number" min="0" value="0" required class="input-field"/>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-600 mb-1">Reorder Level</label>
+        <input name="reorder_level" type="number" min="0" value="10" required class="input-field"/>
+      </div>
+      <div class="col-span-2 sm:col-span-3">
+        <button id="add-drug-btn" type="submit"
+          class="bg-red-600 hover:bg-red-700 text-white font-semibold px-6 py-2 rounded-lg text-sm transition">
+          Add Medicine
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Medicines table -->
+  <div>
+    <div class="flex items-center justify-between mb-3">
+      <h3 class="font-semibold text-gray-800">All Medicines</h3>
+      <button onclick="showRestockModal()" class="text-sm bg-red-600 hover:bg-red-700 text-white font-medium px-4 py-2 rounded-lg transition">+ Restock Item</button>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+      <table class="w-full text-sm">
+        <thead class="bg-gray-50 border-b border-gray-200">
+          <tr>
+            <th class="px-4 py-3 text-left font-semibold text-gray-600">Drug Name</th>
+            <th class="px-4 py-3 text-left font-semibold text-gray-600">Generic</th>
+            <th class="px-4 py-3 text-left font-semibold text-gray-600">Unit</th>
+            <th class="px-4 py-3 text-right font-semibold text-gray-600">Price</th>
+            <th class="px-4 py-3 text-right font-semibold text-gray-600">Stock</th>
+            <th class="px-4 py-3 text-right font-semibold text-gray-600">Reorder Level</th>
+            <th class="px-4 py-3 text-center font-semibold text-gray-600">Status</th>
+            <th class="px-4 py-3 text-center font-semibold text-gray-600">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="inv-admin-table" class="divide-y divide-gray-50">
+          <tr><td colspan="8" class="text-center py-8 text-gray-400">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- AUDIT LOGS TAB -->
+<div id="panel-audit" class="hidden max-w-6xl mx-auto px-4 py-6">
+  <div class="flex items-center justify-between mb-4">
+    <h2 class="text-lg font-bold text-gray-800">Audit Logs</h2>
+    <div class="flex gap-2">
+      <select id="audit-action" onchange="loadAuditLogs()" class="border border-gray-200 rounded-lg px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-red-400">
+        <option value="">All Actions</option>
+        <option>VIEW</option><option>CREATE</option><option>UPDATE</option>
+        <option>DELETE</option><option>LOGIN</option><option>DISPENSE</option>
+      </select>
+      <button onclick="loadAuditLogs()" class="text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium px-3 py-1.5 rounded-lg">↻ Refresh</button>
+    </div>
+  </div>
+  <div id="audit-list" class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+    <p class="text-sm text-gray-400 text-center py-8">Loading…</p>
+  </div>
+</div>
+
+<!-- REGISTER TAB -->
+<div id="panel-register" class="hidden max-w-2xl mx-auto px-4 py-6 space-y-4">
+  <!-- Register Doctor -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+    <h3 class="font-semibold text-gray-800 mb-4">Register New Doctor</h3>
+    <form id="reg-doctor-form" class="grid grid-cols-2 gap-3">
+      <input name="username"       placeholder="Username"        class="input-field" required/>
+      <input name="password" type="password" placeholder="Password (min 8)"  class="input-field" required/>
+      <input name="full_name"      placeholder="Full Name"       class="input-field" required/>
+      <input name="specialization" placeholder="Specialization"  class="input-field" required/>
+      <input name="fees" type="number" step="0.01" placeholder="Consultation Fee" class="input-field" required/>
+      <input name="phone"          placeholder="Phone (optional)" class="input-field"/>
+      <div class="col-span-2">
+        <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-6 py-2 rounded-lg text-sm transition">
+          Register Doctor
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Register Patient -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+    <h3 class="font-semibold text-gray-800 mb-4">Register New Patient</h3>
+    <form id="reg-patient-form" class="grid grid-cols-2 gap-3">
+      <input name="username"   placeholder="Username"        class="input-field" required/>
+      <input name="password" type="password" placeholder="Password (min 8)"  class="input-field" required/>
+      <input name="full_name"  placeholder="Full Name"       class="input-field" required/>
+      <input name="dob" type="date"          placeholder="Date of Birth"   class="input-field" required/>
+      <select name="gender" class="input-field" required>
+        <option value="">Gender…</option>
+        <option>Male</option><option>Female</option><option>Other</option>
+      </select>
+      <input name="phone"       placeholder="Phone (optional)"  class="input-field"/>
+      <input name="blood_group" placeholder="Blood Group (optional)" class="input-field"/>
+      <div class="col-span-2">
+        <button type="submit" class="bg-purple-600 hover:bg-purple-700 text-white font-medium px-6 py-2 rounded-lg text-sm transition">
+          Register Patient
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Restock Modal -->
+<div id="restock-modal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+    <h3 class="font-bold text-gray-800 mb-4">Restock Drug</h3>
+    <select id="restock-item-id" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm mb-3 focus:ring-2 focus:ring-red-400 outline-none">
+      <option>Loading…</option>
+    </select>
+    <input id="restock-qty" type="number" min="1" value="50" placeholder="Quantity to add"
+      class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm mb-4 focus:ring-2 focus:ring-red-400 outline-none"/>
+    <div class="flex gap-3">
+      <button onclick="closeRestockModal()" class="flex-1 border border-gray-200 text-gray-600 font-medium py-2 rounded-lg text-sm hover:bg-gray-50">Cancel</button>
+      <button id="restock-confirm-btn" onclick="confirmRestock()" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold py-2 rounded-lg text-sm transition">Restock</button>
+    </div>
+  </div>
+</div>
+
+<style>
+.input-field { @apply border border-gray-200 rounded-lg px-3 py-2 text-sm w-full focus:ring-2 focus:ring-red-400 outline-none; }
+</style>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  Auth.redirectIfNotLoggedIn("Admin");
+  loadUsers();
+});
+
+// ── Tabs ──────────────────────────────────────────────────────────────────────
+function showTab(tab) {
+  ["users","inventory","audit","register"].forEach(t => {
+    document.getElementById(`panel-${t}`).classList.toggle("hidden", t !== tab);
+    const btn = document.getElementById(`tab-${t}`);
+    btn.className = t === tab
+      ? "tab-btn text-sm px-3 py-1.5 rounded-lg bg-red-100 text-red-700 font-medium"
+      : "tab-btn text-sm px-3 py-1.5 rounded-lg text-gray-500 hover:bg-gray-100";
+  });
+  if (tab === "inventory") loadAdminInventory();
+  if (tab === "audit")     loadAuditLogs();
+}
+
+// ── Users ─────────────────────────────────────────────────────────────────────
+async function loadUsers() {
+  const tbody = document.getElementById("users-table");
+  const role  = document.getElementById("role-filter").value;
+  tbody.innerHTML = `<tr><td colspan="6" class="text-center py-8 text-gray-400">Loading…</td></tr>`;
+  try {
+    const users = await api.get(`/api/admin/users${role ? '?role='+role : ''}`);
+    if (!users.length) {
+      tbody.innerHTML = `<tr><td colspan="6" class="text-center py-8 text-gray-400">No users found.</td></tr>`;
+      return;
+    }
+    const roleColors = {
+      Admin:"bg-red-100 text-red-700", Doctor:"bg-blue-100 text-blue-700",
+      Patient:"bg-purple-100 text-purple-700", Pharmacist:"bg-green-100 text-green-700",
+      LabTech:"bg-orange-100 text-orange-700",
+    };
+    tbody.innerHTML = users.map(u => `
+      <tr class="hover:bg-gray-50 transition">
+        <td class="px-4 py-3 text-gray-500">${u.id}</td>
+        <td class="px-4 py-3 font-medium text-gray-800">${u.username}</td>
+        <td class="px-4 py-3"><span class="text-xs font-medium px-2 py-0.5 rounded-full ${roleColors[u.role] || 'bg-gray-100 text-gray-600'}">${u.role}</span></td>
+        <td class="px-4 py-3">${u.is_active
+          ? '<span class="text-xs bg-green-100 text-green-700 font-medium px-2 py-0.5 rounded-full">Active</span>'
+          : '<span class="text-xs bg-red-100 text-red-700 font-medium px-2 py-0.5 rounded-full">Inactive</span>'}</td>
+        <td class="px-4 py-3 text-gray-500 text-xs">${formatDate(u.created_at)}</td>
+        <td class="px-4 py-3 text-center">
+          ${u.is_active ? `<button onclick="softDeleteUser(${u.id},'${u.username}')" class="text-xs text-red-500 hover:text-red-700 hover:underline">Deactivate</button>` : '—'}
+        </td>
+      </tr>`).join('');
+  } catch(err) {
+    tbody.innerHTML = `<tr><td colspan="6" class="text-center py-8 text-red-500">${err.message}</td></tr>`;
+  }
+}
+
+async function softDeleteUser(id, username) {
+  if (!confirm(`Deactivate user "${username}"? This is a soft-delete and can be reversed.`)) return;
+  try {
+    await api.delete(`/api/admin/users/${id}`);
+    showToast(`User "${username}" deactivated.`, "success");
+    loadUsers();
+  } catch(err) {
+    showToast("Error: " + err.message, "error");
+  }
+}
+
+// ── Inventory ─────────────────────────────────────────────────────────────────
+let inventoryCache = [];
+
+async function loadAdminInventory() {
+  const tbody = document.getElementById("inv-admin-table");
+  tbody.innerHTML = `<tr><td colspan="8" class="text-center py-8 text-gray-400">Loading…</td></tr>`;
+  try {
+    inventoryCache = await api.get("/api/admin/inventory");
+    const items = inventoryCache;
+
+    // Update summary cards
+    const lowStock   = items.filter(i => i.stock_qty <= i.reorder_level);
+    const totalUnits = items.reduce((s, i) => s + i.stock_qty, 0);
+    const totalValue = items.reduce((s, i) => s + (i.stock_qty * i.unit_price), 0);
+    document.getElementById("inv-total").textContent  = items.length;
+    document.getElementById("inv-low").textContent    = lowStock.length;
+    document.getElementById("inv-units").textContent  = totalUnits.toLocaleString();
+    document.getElementById("inv-value").textContent  = formatCurrency(totalValue);
+
+    if (!items.length) {
+      tbody.innerHTML = `<tr><td colspan="8" class="text-center py-8 text-gray-400">No medicines found.</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = items.map(i => {
+      const isLow = i.stock_qty <= i.reorder_level;
+      return `
+      <tr class="hover:bg-gray-50 transition">
+        <td class="px-4 py-3 font-medium text-gray-800">${i.drug_name}</td>
+        <td class="px-4 py-3 text-gray-500">${i.generic_name || '—'}</td>
+        <td class="px-4 py-3 text-gray-500 capitalize">${i.unit}</td>
+        <td class="px-4 py-3 text-right text-gray-700">${formatCurrency(i.unit_price)}</td>
+        <td class="px-4 py-3 text-right font-semibold ${isLow ? 'text-red-600' : 'text-green-700'}">${i.stock_qty}</td>
+        <td class="px-4 py-3 text-right text-gray-500">${i.reorder_level}</td>
+        <td class="px-4 py-3 text-center">
+          ${isLow
+            ? '<span class="text-xs font-medium bg-red-100 text-red-700 px-2 py-0.5 rounded-full">Low Stock</span>'
+            : '<span class="text-xs font-medium bg-green-100 text-green-700 px-2 py-0.5 rounded-full">OK</span>'}
+        </td>
+        <td class="px-4 py-3 text-center">
+          <button onclick="quickRestock(${i.id},'${i.drug_name}')"
+            class="text-xs bg-red-100 hover:bg-red-200 text-red-700 font-medium px-3 py-1 rounded-lg transition">
+            + Restock
+          </button>
+        </td>
+      </tr>`;
+    }).join('');
+  } catch(e) {
+    tbody.innerHTML = `<tr><td colspan="8" class="text-center py-6 text-red-500">${e.message}</td></tr>`;
+  }
+}
+
+let restockInventory = [];
+async function showRestockModal() {
+  try {
+    restockInventory = inventoryCache.length ? inventoryCache : await api.get("/api/admin/inventory");
+    const sel = document.getElementById("restock-item-id");
+    sel.innerHTML = restockInventory.map(i => `<option value="${i.id}">${i.drug_name} (Stock: ${i.stock_qty})</option>`).join('');
+  } catch(e) {}
+  document.getElementById("restock-modal").classList.remove("hidden");
+}
+
+async function quickRestock(id, name) {
+  const qty = parseInt(prompt(`Restock "${name}". Enter quantity to add:`, "50"));
+  if (!qty || qty < 1) return;
+  try {
+    await api.patch(`/api/admin/inventory/${id}/restock?qty=${qty}`);
+    showToast(`${name} restocked by ${qty} units.`, "success");
+    loadAdminInventory();
+  } catch(err) {
+    showToast("Restock failed: " + err.message, "error");
+  }
+}
+
+function closeRestockModal() { document.getElementById("restock-modal").classList.add("hidden"); }
+
+async function confirmRestock() {
+  const id  = parseInt(document.getElementById("restock-item-id").value);
+  const qty = parseInt(document.getElementById("restock-qty").value);
+  if (!qty || qty < 1) { showToast("Enter a valid quantity.", "warning"); return; }
+  const btn = document.getElementById("restock-confirm-btn");
+  showSpinner(btn, "Restocking…");
+  try {
+    await api.patch(`/api/admin/inventory/${id}/restock?qty=${qty}`);
+    closeRestockModal();
+    showToast(`Restocked successfully!`, "success");
+    loadAdminInventory();
+  } catch(err) {
+    showToast("Error: " + err.message, "error");
+  } finally {
+    hideSpinner(btn);
+  }
+}
+
+// ── Audit Logs ────────────────────────────────────────────────────────────────
+async function loadAuditLogs() {
+  const el     = document.getElementById("audit-list");
+  const action = document.getElementById("audit-action").value;
+  el.innerHTML = `<p class="text-sm text-gray-400 text-center py-8">Loading…</p>`;
+  try {
+    const logs = await api.get(`/api/admin/audit-logs?limit=100${action ? '&action='+action : ''}`);
+    if (!logs.length) {
+      el.innerHTML = `<p class="text-sm text-gray-400 text-center py-8">No audit logs found.</p>`;
+      return;
+    }
+    const actionColors = {VIEW:"bg-blue-100 text-blue-700",CREATE:"bg-green-100 text-green-700",
+      UPDATE:"bg-yellow-100 text-yellow-700",DELETE:"bg-red-100 text-red-700",
+      LOGIN:"bg-purple-100 text-purple-700",DISPENSE:"bg-orange-100 text-orange-700"};
+    el.innerHTML = `
+      <table class="w-full text-sm">
+        <thead class="bg-gray-50 border-b border-gray-200">
+          <tr>
+            <th class="px-4 py-3 text-left font-semibold text-gray-600">Time</th>
+            <th class="px-4 py-3 text-left font-semibold text-gray-600">User</th>
+            <th class="px-4 py-3 text-left font-semibold text-gray-600">Action</th>
+            <th class="px-4 py-3 text-left font-semibold text-gray-600">Table</th>
+            <th class="px-4 py-3 text-left font-semibold text-gray-600">Target ID</th>
+            <th class="px-4 py-3 text-left font-semibold text-gray-600">IP</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-50">
+          ${logs.map(l => `
+          <tr class="hover:bg-gray-50">
+            <td class="px-4 py-2.5 text-gray-500 text-xs">${formatDateTime(l.created_at)}</td>
+            <td class="px-4 py-2.5 font-medium text-gray-700">${l.username || `#${l.user_id}` || '—'}</td>
+            <td class="px-4 py-2.5"><span class="text-xs font-medium px-2 py-0.5 rounded-full ${actionColors[l.action] || 'bg-gray-100 text-gray-600'}">${l.action}</span></td>
+            <td class="px-4 py-2.5 text-gray-600">${l.target_table}</td>
+            <td class="px-4 py-2.5 text-gray-400">${l.target_id || '—'}</td>
+            <td class="px-4 py-2.5 text-gray-400 text-xs">${l.ip_address || '—'}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>`;
+  } catch(err) {
+    el.innerHTML = `<p class="text-sm text-red-500 text-center py-8">${err.message}</p>`;
+  }
+}
+
+// ── Registration forms ────────────────────────────────────────────────────────
+document.getElementById("reg-doctor-form").addEventListener("submit", async e => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  try {
+    await api.post("/api/admin/doctors", Object.fromEntries(fd.entries()));
+    showToast("Doctor registered!", "success");
+    e.target.reset();
+  } catch(err) { showToast("Error: " + err.message, "error"); }
+});
+
+document.getElementById("reg-patient-form").addEventListener("submit", async e => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  try {
+    await api.post("/api/admin/patients", Object.fromEntries(fd.entries()));
+    showToast("Patient registered!", "success");
+    e.target.reset();
+  } catch(err) { showToast("Error: " + err.message, "error"); }
+});
+
+// ── Add new medicine ──────────────────────────────────────────────────────────
+document.getElementById("add-drug-form").addEventListener("submit", async e => {
+  e.preventDefault();
+  const btn = document.getElementById("add-drug-btn");
+  showSpinner(btn, "Adding…");
+  const fd = new FormData(e.target);
+  const body = Object.fromEntries(fd.entries());
+  body.unit_price    = parseFloat(body.unit_price);
+  body.stock_qty     = parseInt(body.stock_qty);
+  body.reorder_level = parseInt(body.reorder_level);
+  try {
+    await api.post("/api/admin/inventory", body);
+    showToast(`"${body.drug_name}" added to inventory!`, "success");
+    e.target.reset();
+    e.target.querySelector('[name="unit"]').value = "tablet";
+    loadAdminInventory();
+  } catch(err) {
+    showToast("Error: " + err.message, "error");
+  } finally {
+    hideSpinner(btn);
+  }
+});
+
+function logout() {
+  Auth.clearSession();
+  window.location.href = "/index.html";
+}
+</script>
+</body>
+</html>

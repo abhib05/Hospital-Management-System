@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>HMS – Doctor Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/js/api.js"></script>
+</head>
+<body class="bg-gray-50 h-full">
+
+<!-- ── NAVBAR ──────────────────────────────────────────────────────────── -->
+<nav class="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between sticky top-0 z-40 shadow-sm">
+  <div class="flex items-center gap-3">
+    <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+      <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+          d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5"/>
+      </svg>
+    </div>
+    <span class="font-bold text-gray-800 text-lg">HMS</span>
+    <span class="hidden sm:block text-gray-400 text-sm">/ Doctor Dashboard</span>
+  </div>
+  <div class="flex items-center gap-4">
+    <div class="text-right hidden sm:block">
+      <p id="nav-name" class="text-sm font-semibold text-gray-800">Loading…</p>
+      <p class="text-xs text-blue-600 font-medium">Doctor</p>
+    </div>
+    <button onclick="logout()" class="text-sm text-gray-500 hover:text-red-600 transition flex items-center gap-1">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+      </svg>
+      Logout
+    </button>
+  </div>
+</nav>
+
+<!-- ── LAYOUT ──────────────────────────────────────────────────────────── -->
+<div class="max-w-7xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+  <!-- ── LEFT COLUMN: Queue + Appointment List ─────────────────────────── -->
+  <div class="lg:col-span-1 space-y-4">
+
+    <!-- Queue Card -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="font-semibold text-gray-800">Today's Queue</h2>
+        <button onclick="loadQueue()" class="text-xs text-blue-600 hover:underline">Refresh</button>
+      </div>
+      <div id="queue-stats" class="grid grid-cols-2 gap-3">
+        <div class="bg-blue-50 rounded-lg p-3 text-center">
+          <p id="q-count" class="text-2xl font-bold text-blue-700">—</p>
+          <p class="text-xs text-gray-500 mt-0.5">In Queue</p>
+        </div>
+        <div class="bg-orange-50 rounded-lg p-3 text-center">
+          <p id="q-wait" class="text-2xl font-bold text-orange-600">—</p>
+          <p class="text-xs text-gray-500 mt-0.5">Est. Wait (min)</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Appointments List -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200">
+      <div class="p-4 border-b border-gray-100 flex items-center justify-between">
+        <h2 class="font-semibold text-gray-800">Appointments</h2>
+        <div class="flex gap-1">
+          <button onclick="loadAppointments('Scheduled')"
+            class="status-filter text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-700 font-medium">Scheduled</button>
+          <button onclick="loadAppointments('Completed')"
+            class="status-filter text-xs px-2 py-1 rounded-full text-gray-500 hover:bg-gray-100">Done</button>
+          <button onclick="loadAppointments()"
+            class="status-filter text-xs px-2 py-1 rounded-full text-gray-500 hover:bg-gray-100">All</button>
+        </div>
+      </div>
+      <div id="appt-list" class="divide-y divide-gray-50 max-h-96 overflow-y-auto">
+        <p class="text-sm text-gray-400 text-center py-6">Loading…</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── RIGHT COLUMN: Consultation Panel ──────────────────────────────── -->
+  <div class="lg:col-span-2 space-y-4">
+
+    <!-- No selection state -->
+    <div id="no-selection" class="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
+      <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+        <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+        </svg>
+      </div>
+      <p class="text-gray-500 font-medium">Select an appointment to start consultation</p>
+    </div>
+
+    <!-- Consultation Panel -->
+    <div id="consultation-panel" class="hidden space-y-4">
+
+      <!-- Patient header -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+        <div class="flex items-start justify-between">
+          <div>
+            <h3 id="c-patient-name" class="text-lg font-bold text-gray-900">Patient Name</h3>
+            <p id="c-appt-info" class="text-sm text-gray-500 mt-0.5"></p>
+          </div>
+          <span id="c-status-badge" class="text-xs font-semibold px-3 py-1 rounded-full bg-blue-100 text-blue-700">Scheduled</span>
+        </div>
+        <div id="c-patient-meta" class="mt-3 flex flex-wrap gap-4 text-sm text-gray-600"></div>
+      </div>
+
+      <!-- AI Transcription / Notes -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="font-semibold text-gray-800 flex items-center gap-2">
+            <span class="w-2 h-2 bg-green-500 rounded-full inline-block"></span>
+            Consultation Notes
+          </h3>
+          <!-- Record button -->
+          <div class="flex items-center gap-2">
+            <span id="recording-indicator" class="hidden text-xs text-red-600 font-medium flex items-center gap-1">
+              <span class="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>Recording
+            </span>
+            <button id="record-btn"
+              class="flex items-center gap-2 bg-red-500 hover:bg-red-600 text-white text-sm font-medium px-4 py-2 rounded-lg transition">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 016 0v6a3 3 0 01-3 3z"/>
+              </svg>
+              <span id="record-btn-text">Start Recording</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Transcription loading indicator -->
+        <div id="transcribe-loading" class="hidden mb-3 flex items-center gap-3 bg-blue-50 border border-blue-200 rounded-lg px-4 py-3">
+          <svg class="animate-spin h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+          </svg>
+          <p class="text-sm text-blue-700 font-medium">Transcribing audio — please wait…</p>
+        </div>
+
+        <textarea id="notes-field" rows="6"
+          class="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-700
+                 focus:ring-2 focus:ring-blue-400 focus:border-blue-400 outline-none resize-none"
+          placeholder="Consultation notes will appear here after recording, or type directly…"></textarea>
+      </div>
+
+      <!-- Diagnosis -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+        <h3 class="font-semibold text-gray-800 mb-3">Diagnosis</h3>
+        <textarea id="diagnosis-field" rows="3"
+          class="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-700
+                 focus:ring-2 focus:ring-blue-400 outline-none resize-none"
+          placeholder="Enter primary diagnosis…"></textarea>
+      </div>
+
+      <!-- Prescriptions -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="font-semibold text-gray-800">Prescriptions</h3>
+          <button onclick="addPrescriptionRow()"
+            class="text-sm bg-green-100 hover:bg-green-200 text-green-700 font-medium px-3 py-1.5 rounded-lg transition">
+            + Add Drug
+          </button>
+        </div>
+        <div id="prescription-list" class="space-y-2"></div>
+      </div>
+
+      <!-- Action buttons -->
+      <div class="flex gap-3">
+        <button id="save-btn" onclick="saveConsultation()"
+          class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-lg transition text-sm">
+          Save Consultation
+        </button>
+        <button id="complete-btn" onclick="completeAppointment()"
+          class="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold py-2.5 rounded-lg transition text-sm">
+          Complete & Generate Invoice
+        </button>
+      </div>
+
+    </div><!-- /consultation-panel -->
+  </div>
+</div>
+
+<script>
+// ── State ─────────────────────────────────────────────────────────────────────
+let currentAppointmentId = null;
+let currentRecordId = null;
+let mediaRecorder = null;
+let audioChunks = [];
+let isRecording = false;
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+document.addEventListener("DOMContentLoaded", async () => {
+  Auth.redirectIfNotLoggedIn("Doctor");
+  const user = Auth.getUser();
+  document.getElementById("nav-name").textContent = user.username;
+  await loadQueue();
+  await loadAppointments("Scheduled");
+});
+
+// ── Queue ─────────────────────────────────────────────────────────────────────
+async function loadQueue() {
+  try {
+    const data = await api.get("/api/doctors/queue");
+    document.getElementById("q-count").textContent = data.patients_in_queue;
+    document.getElementById("q-wait").textContent  = data.estimated_wait_minutes;
+  } catch(e) { /* silent */ }
+}
+
+// ── Appointment list ──────────────────────────────────────────────────────────
+async function loadAppointments(status = null) {
+  const list = document.getElementById("appt-list");
+  list.innerHTML = `<p class="text-sm text-gray-400 text-center py-6">Loading…</p>`;
+
+  const today = new Date().toISOString().slice(0,10);
+  const url = `/api/doctors/appointments?date=${today}${status ? '&status='+status : ''}`;
+
+  try {
+    const appts = await api.get(url);
+    if (!appts.length) {
+      list.innerHTML = `<p class="text-sm text-gray-400 text-center py-6">No appointments found.</p>`;
+      return;
+    }
+    // Event delegation for appointment clicks
+    list.innerHTML = appts.map(a => `
+      <div class="appt-item px-4 py-3 hover:bg-gray-50 cursor-pointer transition"
+           data-id="${a.id}" data-name="${a.patient_name}" data-status="${a.status}"
+           data-time="${a.scheduled_at}" data-pid="${a.patient_id}">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-semibold text-gray-800">${a.patient_name}</p>
+            <p class="text-xs text-gray-400 mt-0.5">${formatDateTime(a.scheduled_at)}</p>
+            ${a.reason ? `<p class="text-xs text-gray-500 mt-0.5 italic">${a.reason}</p>` : ''}
+          </div>
+          <span class="text-xs font-medium px-2 py-0.5 rounded-full ${statusColor(a.status)}">${a.status}</span>
+        </div>
+      </div>`).join('');
+
+    list.addEventListener("click", e => {
+      const item = e.target.closest(".appt-item");
+      if (item) openConsultation(item.dataset);
+    });
+  } catch(err) {
+    list.innerHTML = `<p class="text-sm text-red-500 text-center py-6">${err.message}</p>`;
+  }
+}
+
+function statusColor(s) {
+  return {Scheduled:"bg-blue-100 text-blue-700", Completed:"bg-green-100 text-green-700",
+          "No-Show":"bg-gray-100 text-gray-500", Cancelled:"bg-red-100 text-red-600"}[s] || "bg-gray-100 text-gray-600";
+}
+
+// ── Open consultation ─────────────────────────────────────────────────────────
+async function openConsultation(data) {
+  currentAppointmentId = parseInt(data.id);
+  document.getElementById("no-selection").classList.add("hidden");
+  document.getElementById("consultation-panel").classList.remove("hidden");
+
+  document.getElementById("c-patient-name").textContent = data.name;
+  document.getElementById("c-appt-info").textContent    = `Appointment #${data.id} · ${formatDateTime(data.time)}`;
+  document.getElementById("c-status-badge").textContent = data.status;
+  document.getElementById("c-status-badge").className   = `text-xs font-semibold px-3 py-1 rounded-full ${statusColor(data.status)}`;
+
+  // Load existing record if any
+  try {
+    const hist = await api.get(`/api/doctors/patients/${data.pid}/history`);
+    const meta = [];
+    meta.push(`<span class="bg-gray-100 px-2 py-0.5 rounded text-xs">Patient ID: ${data.pid}</span>`);
+    if (hist.length) meta.push(`<span class="bg-yellow-50 px-2 py-0.5 rounded text-xs text-yellow-700">📋 ${hist.length} prior visit(s)</span>`);
+    document.getElementById("c-patient-meta").innerHTML = meta.join('');
+  } catch(e) {}
+
+  // Check for existing medical record
+  document.getElementById("notes-field").value = "";
+  document.getElementById("diagnosis-field").value = "";
+  document.getElementById("prescription-list").innerHTML = "";
+  currentRecordId = null;
+}
+
+// ── AI Audio Recording ────────────────────────────────────────────────────────
+document.getElementById("record-btn").addEventListener("click", toggleRecording);
+
+async function toggleRecording() {
+  if (!isRecording) {
+    await startRecording();
+  } else {
+    await stopAndTranscribe();
+  }
+}
+
+async function startRecording() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    audioChunks = [];
+    mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm;codecs=opus" });
+    mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
+    mediaRecorder.start(250); // collect chunks every 250ms
+    isRecording = true;
+
+    document.getElementById("record-btn").classList.replace("bg-red-500","bg-red-700");
+    document.getElementById("record-btn-text").textContent = "Stop Recording";
+    document.getElementById("recording-indicator").classList.remove("hidden");
+  } catch(err) {
+    showToast("Microphone access denied: " + err.message, "error");
+  }
+}
+
+async function stopAndTranscribe() {
+  if (!mediaRecorder) return;
+  isRecording = false;
+
+  // Show spinner BEFORE stopping (prevents double-click)
+  document.getElementById("record-btn").disabled = true;
+  document.getElementById("recording-indicator").classList.add("hidden");
+  document.getElementById("transcribe-loading").classList.remove("hidden");
+
+  mediaRecorder.stop();
+  mediaRecorder.stream.getTracks().forEach(t => t.stop());
+
+  mediaRecorder.onstop = async () => {
+    try {
+      const blob = new Blob(audioChunks, { type: "audio/webm" });
+      const formData = new FormData();
+      formData.append("audio", blob, "consultation.webm");
+
+      const result = await api.postForm("/api/transcribe", formData);
+      const notesField = document.getElementById("notes-field");
+      notesField.value = notesField.value
+        ? notesField.value + "\n\n" + result.text
+        : result.text;
+      showToast("Transcription complete!", "success");
+    } catch(err) {
+      showToast("Transcription failed: " + err.message, "error");
+    } finally {
+      document.getElementById("transcribe-loading").classList.add("hidden");
+      document.getElementById("record-btn").disabled = false;
+      document.getElementById("record-btn").classList.replace("bg-red-700","bg-red-500");
+      document.getElementById("record-btn-text").textContent = "Start Recording";
+    }
+  };
+}
+
+// ── Prescriptions ─────────────────────────────────────────────────────────────
+function addPrescriptionRow(drug = "", dosage = "", duration = "") {
+  const list = document.getElementById("prescription-list");
+  const idx  = list.children.length;
+  const row  = document.createElement("div");
+  row.className = "prescription-row flex gap-2 items-center";
+  row.innerHTML = `
+    <input class="px-drug flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 outline-none"
+           placeholder="Drug name" value="${drug}"/>
+    <input class="px-dosage w-28 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 outline-none"
+           placeholder="Dose" value="${dosage}"/>
+    <input class="px-duration w-24 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400 outline-none"
+           placeholder="Duration" value="${duration}"/>
+    <button onclick="this.closest('.prescription-row').remove()"
+      class="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+      </svg>
+    </button>`;
+  list.appendChild(row);
+}
+
+function getPrescriptions() {
+  return Array.from(document.querySelectorAll(".prescription-row")).map(row => ({
+    drug:     row.querySelector(".px-drug").value.trim(),
+    dosage:   row.querySelector(".px-dosage").value.trim(),
+    duration: row.querySelector(".px-duration").value.trim(),
+  })).filter(p => p.drug);
+}
+
+// ── Save consultation ─────────────────────────────────────────────────────────
+async function saveConsultation() {
+  if (!currentRecordId) {
+    showToast("No medical record loaded. Complete the appointment first.", "warning");
+    return;
+  }
+  const btn = document.getElementById("save-btn");
+  showSpinner(btn, "Saving…");
+  try {
+    await api.patch(`/api/doctors/records/${currentRecordId}`, {
+      notes:         document.getElementById("notes-field").value,
+      diagnosis:     document.getElementById("diagnosis-field").value,
+      prescriptions: getPrescriptions(),
+    });
+    showToast("Consultation saved!", "success");
+  } catch(err) {
+    showToast("Save failed: " + err.message, "error");
+  } finally {
+    hideSpinner(btn);
+  }
+}
+
+// ── Complete appointment ──────────────────────────────────────────────────────
+async function completeAppointment() {
+  if (!currentAppointmentId) return;
+  const btn = document.getElementById("complete-btn");
+  showSpinner(btn, "Completing…");
+  try {
+    const result = await api.post(`/api/doctors/appointments/${currentAppointmentId}/complete`);
+    currentRecordId = result.record_id;
+
+    // Save notes/diagnosis into the newly created record
+    await api.patch(`/api/doctors/records/${currentRecordId}`, {
+      notes:         document.getElementById("notes-field").value,
+      diagnosis:     document.getElementById("diagnosis-field").value,
+      prescriptions: getPrescriptions(),
+    });
+
+    showToast("Appointment completed! Invoice generated.", "success");
+    await loadAppointments("Scheduled");
+  } catch(err) {
+    showToast("Error: " + err.message, "error");
+  } finally {
+    hideSpinner(btn);
+  }
+}
+
+function logout() {
+  Auth.clearSession();
+  window.location.href = "/index.html";
+}
+</script>
+</body>
+</html>

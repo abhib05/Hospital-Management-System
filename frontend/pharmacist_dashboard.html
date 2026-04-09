@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>HMS – Pharmacist Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/js/api.js"></script>
+</head>
+<body class="bg-gray-50 h-full">
+
+<!-- ── NAVBAR ──────────────────────────────────────────────────────────── -->
+<nav class="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between sticky top-0 z-40 shadow-sm">
+  <div class="flex items-center gap-3">
+    <div class="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center">
+      <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+          d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18"/>
+      </svg>
+    </div>
+    <span class="font-bold text-gray-800 text-lg">HMS</span>
+    <span class="hidden sm:block text-gray-400 text-sm">/ Pharmacist</span>
+  </div>
+  <div class="flex items-center gap-4">
+    <button onclick="showTab('prescriptions')" id="tab-prescriptions"
+      class="tab-btn text-sm font-medium px-3 py-1.5 rounded-lg bg-green-100 text-green-700">Prescriptions</button>
+    <button onclick="showTab('inventory')" id="tab-inventory"
+      class="tab-btn text-sm font-medium px-3 py-1.5 rounded-lg text-gray-500 hover:bg-gray-100">Inventory</button>
+    <button onclick="logout()" class="text-sm text-gray-400 hover:text-red-600 transition">Logout</button>
+  </div>
+</nav>
+
+<!-- ── PRESCRIPTIONS TAB ──────────────────────────────────────────────── -->
+<div id="panel-prescriptions" class="max-w-6xl mx-auto px-4 py-6">
+
+  <div class="flex items-center justify-between mb-4">
+    <h2 class="text-lg font-bold text-gray-800">Pending Prescriptions</h2>
+    <button onclick="loadPrescriptions()"
+      class="text-sm bg-green-600 hover:bg-green-700 text-white font-medium px-4 py-2 rounded-lg transition">
+      ↻ Refresh
+    </button>
+  </div>
+
+  <!-- Note: Diagnosis/Notes are intentionally NOT shown here (backend enforced) -->
+  <div class="bg-amber-50 border border-amber-200 rounded-lg px-4 py-2.5 mb-4 text-sm text-amber-800 flex items-center gap-2">
+    <svg class="w-4 h-4 text-amber-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+    </svg>
+    <span>You are viewing prescriptions only. Diagnosis and doctor notes are restricted by system policy.</span>
+  </div>
+
+  <div id="rx-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+    <div class="col-span-full text-sm text-gray-400 text-center py-8">Loading prescriptions…</div>
+  </div>
+</div>
+
+<!-- ── INVENTORY TAB ─────────────────────────────────────────────────── -->
+<div id="panel-inventory" class="hidden max-w-6xl mx-auto px-4 py-6">
+
+  <div class="flex items-center gap-3 mb-4">
+    <h2 class="text-lg font-bold text-gray-800">Inventory</h2>
+    <input id="inv-search" type="text" placeholder="Search drug name…"
+      class="flex-1 max-w-xs border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-400 outline-none"/>
+    <button onclick="searchInventory()"
+      class="text-sm bg-green-600 hover:bg-green-700 text-white font-medium px-4 py-2 rounded-lg transition">Search</button>
+    <button onclick="loadInventory()"
+      class="text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium px-4 py-2 rounded-lg transition">All</button>
+  </div>
+
+  <!-- Low stock alert badge -->
+  <div id="low-stock-banner" class="hidden mb-4"></div>
+
+  <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+    <table class="w-full text-sm">
+      <thead class="bg-gray-50 border-b border-gray-200">
+        <tr>
+          <th class="px-4 py-3 text-left font-semibold text-gray-600">Drug Name</th>
+          <th class="px-4 py-3 text-left font-semibold text-gray-600">Generic</th>
+          <th class="px-4 py-3 text-center font-semibold text-gray-600">Unit</th>
+          <th class="px-4 py-3 text-right font-semibold text-gray-600">Price</th>
+          <th class="px-4 py-3 text-right font-semibold text-gray-600">Stock</th>
+          <th class="px-4 py-3 text-center font-semibold text-gray-600">Status</th>
+        </tr>
+      </thead>
+      <tbody id="inv-table" class="divide-y divide-gray-50">
+        <tr><td colspan="6" class="text-center py-8 text-gray-400">Loading…</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ── DISPENSE MODAL ──────────────────────────────────────────────────── -->
+<div id="dispense-modal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="text-lg font-bold text-gray-800">Dispense Medication</h3>
+      <button onclick="closeDispenseModal()" class="text-gray-400 hover:text-gray-600">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+
+    <p class="text-sm text-gray-600 mb-4">
+      Patient: <strong id="d-patient-name"></strong><br/>
+      Drug: <strong id="d-drug-name"></strong>
+    </p>
+
+    <div class="space-y-3">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Select Inventory Item</label>
+        <select id="d-inventory-id"
+          class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-400 outline-none">
+          <option value="">Loading inventory…</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
+        <input id="d-quantity" type="number" min="1" value="1"
+          class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-400 outline-none"/>
+      </div>
+    </div>
+
+    <div class="flex gap-3 mt-5">
+      <button onclick="closeDispenseModal()"
+        class="flex-1 border border-gray-200 text-gray-600 font-medium py-2.5 rounded-lg hover:bg-gray-50 transition text-sm">
+        Cancel
+      </button>
+      <button id="dispense-confirm-btn" onclick="confirmDispense()"
+        class="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold py-2.5 rounded-lg transition text-sm">
+        Dispense
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── State ─────────────────────────────────────────────────────────────────────
+let dispenseContext = {}; // { record_id, appointment_id, patient_name, drug_name }
+
+document.addEventListener("DOMContentLoaded", () => {
+  Auth.redirectIfNotLoggedIn("Pharmacist");
+  loadPrescriptions();
+  loadLowStock();
+});
+
+// ── Tabs ──────────────────────────────────────────────────────────────────────
+function showTab(tab) {
+  ["prescriptions","inventory"].forEach(t => {
+    document.getElementById(`panel-${t}`).classList.toggle("hidden", t !== tab);
+    const btn = document.getElementById(`tab-${t}`);
+    btn.className = t === tab
+      ? "tab-btn text-sm font-medium px-3 py-1.5 rounded-lg bg-green-100 text-green-700"
+      : "tab-btn text-sm font-medium px-3 py-1.5 rounded-lg text-gray-500 hover:bg-gray-100";
+  });
+  if (tab === "inventory") loadInventory();
+}
+
+// ── Prescriptions ─────────────────────────────────────────────────────────────
+async function loadPrescriptions() {
+  const grid = document.getElementById("rx-list");
+  grid.innerHTML = `<div class="col-span-full text-sm text-gray-400 text-center py-8">Loading…</div>`;
+  try {
+    const records = await api.get("/api/pharmacist/prescriptions");
+    if (!records.length) {
+      grid.innerHTML = `<div class="col-span-full text-sm text-gray-400 text-center py-8">No pending prescriptions.</div>`;
+      return;
+    }
+    grid.innerHTML = records.map(r => {
+      const rxItems = Array.isArray(r.prescriptions) ? r.prescriptions : [];
+      return `
+      <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+        <div class="flex items-start justify-between mb-3">
+          <div>
+            <p class="font-semibold text-gray-800">${r.patient_name}</p>
+            <p class="text-xs text-gray-400">${formatDate(r.scheduled_at)} · Record #${r.id}</p>
+          </div>
+          <span class="text-xs bg-blue-100 text-blue-700 font-medium px-2 py-0.5 rounded-full">
+            ${rxItems.length} item${rxItems.length !== 1 ? 's' : ''}
+          </span>
+        </div>
+
+        ${rxItems.length ? `
+        <ul class="space-y-2 mb-4">
+          ${rxItems.map((rx, i) => `
+          <li class="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2">
+            <div>
+              <p class="text-sm font-medium text-gray-800">${rx.drug || 'N/A'}</p>
+              <p class="text-xs text-gray-500">${rx.dosage || ''} ${rx.duration ? '· ' + rx.duration : ''}</p>
+            </div>
+            <button onclick="openDispenseModal(${r.id}, ${r.patient_id || 0}, '${r.patient_name}', '${rx.drug}', ${r.appointment_id || 0})"
+              class="text-xs bg-green-100 hover:bg-green-200 text-green-700 font-medium px-3 py-1.5 rounded-lg transition">
+              Dispense
+            </button>
+          </li>`).join('')}
+        </ul>` : `<p class="text-xs text-gray-400 mb-4">No prescription items.</p>`}
+      </div>`;
+    }).join('');
+  } catch(err) {
+    grid.innerHTML = `<div class="col-span-full text-sm text-red-500 text-center py-8">${err.message}</div>`;
+  }
+}
+
+// ── Inventory ─────────────────────────────────────────────────────────────────
+async function loadInventory() {
+  const tbody = document.getElementById("inv-table");
+  tbody.innerHTML = `<tr><td colspan="6" class="text-center py-8 text-gray-400">Loading…</td></tr>`;
+  try {
+    const items = await api.get("/api/pharmacist/inventory");
+    renderInventoryTable(items);
+  } catch(err) {
+    tbody.innerHTML = `<tr><td colspan="6" class="text-center py-8 text-red-500">${err.message}</td></tr>`;
+  }
+}
+
+async function searchInventory() {
+  const q = document.getElementById("inv-search").value.trim();
+  if (!q) return loadInventory();
+  try {
+    const items = await api.get(`/api/pharmacist/inventory/search?q=${encodeURIComponent(q)}`);
+    renderInventoryTable(items);
+  } catch(err) {
+    showToast("Search failed: " + err.message, "error");
+  }
+}
+
+function renderInventoryTable(items) {
+  const tbody = document.getElementById("inv-table");
+  if (!items.length) {
+    tbody.innerHTML = `<tr><td colspan="6" class="text-center py-8 text-gray-400">No items found.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = items.map(item => {
+    const isLow = item.stock_qty <= item.reorder_level;
+    return `
+    <tr class="hover:bg-gray-50 transition">
+      <td class="px-4 py-3 font-medium text-gray-800">${item.drug_name}</td>
+      <td class="px-4 py-3 text-gray-500">${item.generic_name || '—'}</td>
+      <td class="px-4 py-3 text-center text-gray-500">${item.unit}</td>
+      <td class="px-4 py-3 text-right text-gray-700">${formatCurrency(item.unit_price)}</td>
+      <td class="px-4 py-3 text-right font-semibold ${isLow ? 'text-red-600' : 'text-gray-800'}">${item.stock_qty}</td>
+      <td class="px-4 py-3 text-center">
+        ${isLow
+          ? `<span class="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-medium">Low Stock</span>`
+          : `<span class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">In Stock</span>`}
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+async function loadLowStock() {
+  try {
+    const items = await api.get("/api/pharmacist/inventory/low-stock");
+    if (items.length > 0) {
+      const banner = document.getElementById("low-stock-banner");
+      banner.innerHTML = `
+        <div class="bg-red-50 border border-red-200 rounded-lg px-4 py-2.5 flex items-center gap-2 text-sm text-red-700">
+          <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+          </svg>
+          <strong>${items.length} item(s)</strong> at or below reorder level. Contact Admin to restock.
+        </div>`;
+      banner.classList.remove("hidden");
+    }
+  } catch(e) {}
+}
+
+// ── Dispense Modal ────────────────────────────────────────────────────────────
+async function openDispenseModal(record_id, patient_id, patient_name, drug_name, appointment_id) {
+  dispenseContext = { record_id, patient_id, appointment_id, patient_name, drug_name };
+  document.getElementById("d-patient-name").textContent = patient_name;
+  document.getElementById("d-drug-name").textContent = drug_name;
+  document.getElementById("d-quantity").value = 1;
+
+  // Load inventory into select
+  const sel = document.getElementById("d-inventory-id");
+  sel.innerHTML = `<option value="">Loading…</option>`;
+
+  try {
+    const items = await api.get(`/api/pharmacist/inventory/search?q=${encodeURIComponent(drug_name)}`);
+    if (items.length) {
+      sel.innerHTML = items.map(i =>
+        `<option value="${i.id}">${i.drug_name} (${i.unit}) – ${formatCurrency(i.unit_price)} – Stock: ${i.stock_qty}</option>`
+      ).join('');
+    } else {
+      sel.innerHTML = `<option value="">No matching inventory found</option>`;
+    }
+  } catch(e) {
+    sel.innerHTML = `<option value="">Error loading inventory</option>`;
+  }
+
+  document.getElementById("dispense-modal").classList.remove("hidden");
+}
+
+function closeDispenseModal() {
+  document.getElementById("dispense-modal").classList.add("hidden");
+  dispenseContext = {};
+}
+
+async function confirmDispense() {
+  const inventory_id = parseInt(document.getElementById("d-inventory-id").value);
+  const quantity     = parseInt(document.getElementById("d-quantity").value);
+
+  if (!inventory_id) { showToast("Please select an inventory item.", "warning"); return; }
+  if (!quantity || quantity < 1) { showToast("Quantity must be at least 1.", "warning"); return; }
+
+  const btn = document.getElementById("dispense-confirm-btn");
+  showSpinner(btn, "Dispensing…");
+
+  try {
+    const result = await api.post("/api/pharmacist/dispense", {
+      record_id:      dispenseContext.record_id,
+      inventory_id,
+      quantity,
+      appointment_id: dispenseContext.appointment_id,
+    });
+    closeDispenseModal();
+    showToast(`Prescription Dispensed! Invoice updated: ${formatCurrency(result.invoice?.grand_total)}`, "success");
+    await loadPrescriptions();
+  } catch(err) {
+    showToast("Dispense failed: " + err.message, "error");
+  } finally {
+    hideSpinner(btn);
+  }
+}
+
+function logout() {
+  Auth.clearSession();
+  window.location.href = "/index.html";
+}
+</script>
+</body>
+</html>
